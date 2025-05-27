@@ -1,0 +1,35 @@
+body {
+    overflow-x: hidden;
+  }
+  
+  .sidebar {
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    width: 280px;
+    border-right: 1px solid #ddd;
+  }
+
+  .content {
+    margin-left: 290px;
+    padding: 2rem;
+  }
+
+  .section {
+    margin-bottom: 3rem;
+  }
+
+  #preloader {
+    transition: opacity 0.2s ease-in-out;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+    padding-left: 0;
+    padding-right: 0;
+    margin-left: 0;
+    margin-right: 0;
+  }

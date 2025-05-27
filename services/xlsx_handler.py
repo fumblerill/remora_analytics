@@ -30,6 +30,7 @@ def load_error_reference_dataframe() -> pd.DataFrame:
         return pd.DataFrame()
     
 def render_df(df: pd.DataFrame, table_id: str) -> str:
+    df = df.fillna("")
     return df.to_html(
         table_id=table_id,
         classes="table table-sm table-striped table-bordered",

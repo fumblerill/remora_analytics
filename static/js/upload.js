@@ -101,6 +101,7 @@ function initTabulators() {
       return;
     }
 
+
     const uniqueValuesByField = {};
     data.forEach(row => {
       Object.entries(row).forEach(([field, value]) => {
@@ -239,21 +240,32 @@ function initCharts() {
       plugins: {
         legend: {
           position: 'right',
-          labels: { padding: 20 }
+          labels: {
+            padding: 20,
+            color: '#000'  // будет заменён в updateChartTheme
+          }
         },
         datalabels: {
-          color: '#000',
+          color: '#000',  // будет заменён в updateChartTheme
           font: { weight: 'bold' },
           formatter: (value, context) => {
             const data = context.chart.data.datasets[0].data;
             const total = data.reduce((a, b) => a + b, 0);
             return ((value / total) * 100).toFixed(1) + '%';
           }
+        },
+        tooltip: {
+          bodyColor: '#000',
+          backgroundColor: '#fff',
+          borderColor: '#ccc',
+          borderWidth: 1
         }
       }
     },
     plugins: [ChartDataLabels]
   });
+
+  updateChartTheme(document.body.classList.contains("dark"));
 }
 
 // Показ контента после загрузки и удаление прелоадера

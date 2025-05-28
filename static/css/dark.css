@@ -1,0 +1,126 @@
+/* Общий фон и текст */
+body {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+  }
+  
+/* Базовые кнопки */
+button {
+    background-color: #333;
+    color: #fff;
+}
+
+/* Кнопка смены темы */
+.theme-toggle-btn {
+    padding: 0.35rem 0.8rem;
+    border-radius: 6px;
+    font-size: 1rem;
+    border: none;
+    background-color: #333;
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+    transition: all 0.2s ease;
+}
+
+.theme-toggle-btn:hover {
+    background-color: #444;
+}
+
+/* Боковая панель */
+.sidebar {
+position: fixed;
+top: 0;
+left: 0;
+width: 280px;
+height: 100vh;
+padding: 1rem;
+background-color: #333;
+border-right: 1px solid #333;
+overflow-y: auto;
+}
+
+/* Навигация */
+.sidebar .nav-link {
+    color: #ccc;
+  }
+  
+.sidebar .nav-link:hover {
+color: white;
+background-color: #3a3a3a;
+border-radius: 4px;
+}
+
+.text-muted {
+    color: #ccc !important;
+}
+
+.btn-outline-primary {
+    color: #ccc;
+    border-color: #ccc;
+}
+
+/* Основной фон и текст */
+.tabulator {
+    background-color: #1a1a1a;
+    color: #e0e0e0;
+  }
+
+  .tabulator .tabulator-header {
+    background-color: #1f1f1f !important;
+  }
+
+  .tabulator-col {
+    background-color: #1f1f1f;
+    color: #ccc;
+  }
+  .tabulator-col-content {
+    background-color: #1f1f1f;
+    color: #ccc;
+  }
+  
+  /* Фильтры */
+  .tabulator-header-filter input,
+  .tabulator-header-filter select {
+    background-color: #2a2a2a;
+    color: #ccc;
+    border: 1px solid #444;
+  }
+  
+  /* Строки */
+  .tabulator-row {
+    background-color: #1a1a1a !important;
+    color: #e0e0e0;
+  }
+  .tabulator-row:nth-child(even) {
+    background-color: #202020 !important;
+  }
+  .tabulator-row:hover {
+    background-color: #141414 !important;
+  }
+  
+  /* Ячейки */
+  .tabulator-cell {
+    color: #e0e0e0;
+  }
+  
+  /* Пагинация */
+  .tabulator-page.active {
+    background-color: #2a2a2a;
+    color: #ccc;
+    border: 1px solid #444;
+  }
+  
+  .tabulator-footer-contents {
+    background-color: #2a2a2a;
+  }
+
+  .tabulator .tabulator-footer .tabulator-page.active {
+    color: white !important;
+    background-color: #2a2a2a;
+}
+
+  .tabulator-tableholder {
+    scrollbar-color: #555 #1a1a1a;
+    scrollbar-width: auto;
+  }

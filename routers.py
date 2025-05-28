@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, UploadFile, File
 from fastapi.responses import HTMLResponse
-from services.xlsx_handler import generate_tables
+from xlsx_handler import generate_tables
 
 router = APIRouter()
 

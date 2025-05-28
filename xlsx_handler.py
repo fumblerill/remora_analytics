@@ -1,5 +1,6 @@
 import pandas as pd
 import io
+import re
 
 from settings import ERROR_REF_PATH
 
@@ -36,18 +37,6 @@ def load_error_reference_dataframe() -> pd.DataFrame:
     except Exception as e:
         print(f"[ERROR] Ошибка загрузки справочника: {e}")
         return pd.DataFrame()
-    
-# def render_df(df: pd.DataFrame, table_id: str) -> str:
-#     df = df.fillna("")
-#     return df.to_html(
-#         table_id=table_id,
-#         classes="table table-sm table-striped table-bordered",
-#         index=False,
-#         escape=False,
-#         border=0
-#     ).replace("<table ", '<table style="width:100%" ')
-
-# =================== Обработка .xlsx и генерация HTML-таблиц ===================
 
 def generate_tables(xlsx_bytes: bytes) -> dict[str, str | dict[str, str]]:
     """
@@ -57,6 +46,18 @@ def generate_tables(xlsx_bytes: bytes) -> dict[str, str | dict[str, str]]:
 
     df_errors = load_error_reference_dataframe()
     df = pd.read_excel(io.BytesIO(xlsx_bytes), skiprows=1)
+    for col in df.columns:
+        print(f"{repr(col)} → {[ord(c) for c in col]}")
+    df.columns = (
+        pd.Series(df.columns)
+        .astype(str)
+        .str.replace(r"[\u00a0\t]", " ", regex=True)
+        .str.replace(r"\s+", " ", regex=True)
+        .str.strip()
+    ).values
+
+    df = df.applymap(lambda x: re.sub(r"\s+", " ", str(x)).strip() if isinstance(x, str) else x)
+
     df_processed = process_main_file(df, df_errors)
 
     # Удаляем строки с итогами, например: "Всего: 1234"
@@ -102,7 +103,6 @@ def generate_tables(xlsx_bytes: bytes) -> dict[str, str | dict[str, str]]:
         "max_date": max_date,
     }
 
-
 def convert_datetime(df: pd.DataFrame) -> pd.DataFrame:
     """
     Приводит все datetime-столбцы в строковый формат, чтобы избежать ошибок сериализации JSON.
@@ -111,7 +111,6 @@ def convert_datetime(df: pd.DataFrame) -> pd.DataFrame:
     for col in df.select_dtypes(include=["datetime64[ns]", "datetime64[ns, UTC]"]):
         df[col] = df[col].astype(str)
     return df
-
 
 def process_main_file(df_main: pd.DataFrame, df_errors: pd.DataFrame) -> pd.DataFrame:
     """
@@ -155,7 +154,6 @@ def process_main_file(df_main: pd.DataFrame, df_errors: pd.DataFrame) -> pd.Data
     df_merged.drop(columns=['Код ответа', 'Описание ошибки'], inplace=True, errors='ignore')
 
     return df_merged
-
 
 def create_summary_by_department(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -227,7 +225,6 @@ def create_summary_by_department(df: pd.DataFrame) -> pd.DataFrame:
 
     return result
 
-
 def create_summary_by_employee_threshold(df: pd.DataFrame, threshold: int = 500) -> pd.DataFrame:
     """
     Возвращает таблицу сотрудников, которые выполнили не менее `threshold` успешно зарегистрированных СЭМД.
@@ -253,7 +250,6 @@ def create_summary_by_employee_threshold(df: pd.DataFrame, threshold: int = 500)
     filtered_summary = employee_summary[employee_summary['Количество СЭМД'] >= threshold]
 
     return filtered_summary
-
 
 def create_summary_by_type(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -299,7 +295,6 @@ def create_summary_by_type(df: pd.DataFrame) -> pd.DataFrame:
 
     return pivot_table
 
-
 def create_summary_by_value_mismatch_threshold(
     df: pd.DataFrame,
     threshold: str = 'VALUE_MISMATCH_METADATA_AND_CERTIFICATE'
@@ -322,14 +317,13 @@ def create_summary_by_value_mismatch_threshold(
 
     return summary
 
-
 def create_status_chart_data(df: pd.DataFrame) -> tuple[list[str], list[int]]:
     """
     Возвращает подписи и значения для круговой диаграммы по статусам СЭМД.
     """
     labels = [
         'СЭМД успешно зарегистрированных в РЭМД',
-        'Не  отправлен',
+        'Не отправлен',
         'СЭМД отказано в регистрации в РЭМД'
     ]
 
@@ -339,7 +333,6 @@ def create_status_chart_data(df: pd.DataFrame) -> tuple[list[str], list[int]]:
     ]
 
     return labels, values
-
 
 def create_error_diagram(df: pd.DataFrame) -> tuple[list[str], list[int]]:
     """
@@ -356,7 +349,6 @@ def create_error_diagram(df: pd.DataFrame) -> tuple[list[str], list[int]]:
 
     return labels, values
 
-
 def display_summary(df_stats: pd.DataFrame, df_doc_perf: pd.DataFrame) -> dict[str, str]:
     """
     Возвращает текстовую сводку статистики для сайдбара:
@@ -364,7 +356,7 @@ def display_summary(df_stats: pd.DataFrame, df_doc_perf: pd.DataFrame) -> dict[s
     """
     # Получаем суммы по статусам
     total_success = df_stats['СЭМД успешно зарегистрированных в РЭМД'].sum()
-    total_not_sent = df_stats['Не  отправлен'].sum()
+    total_not_sent = df_stats['Не отправлен'].sum()
     total_refused = df_stats['СЭМД отказано в регистрации в РЭМД'].sum()
 
     total_all = total_success + total_not_sent + total_refused
@@ -385,7 +377,6 @@ def display_summary(df_stats: pd.DataFrame, df_doc_perf: pd.DataFrame) -> dict[s
     }
 
     return stats
-
 
 def get_date(df: pd.DataFrame) -> tuple[str, str]:
     """

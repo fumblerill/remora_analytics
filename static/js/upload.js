@@ -1,3 +1,22 @@
+const customColumnOrder = {
+  statisticsTable: [
+    "Отделение МО",
+    "Сотрудник, сформировавший СЭМД",
+    "СЭМД успешно зарегистрированных в РЭМД",
+    "СЭМД отказано в регистрации в РЭМД",
+    "Не отправлен"
+  ],
+  docPerfTable: [
+    "Сотрудник, сформировавший СЭМД",
+    "Количество СЭМД"
+  ],
+  errorsDictTable: [
+    "Код ответа",
+    "Рекомендуемые действия",
+    "Описание"
+  ]
+};
+
 function initTabulators() {
   // Находим все шаблоны с JSON (по ID, заканчивающемуся на -json)
   document.querySelectorAll("template[id$='-json']").forEach(template => {
@@ -30,24 +49,51 @@ function initTabulators() {
       return;
     }
 
-    // Автоматически генерируем колонки из ключей первой строки
-    const columns = Object.keys(data[0]).map(key => ({
-      title: key,
-      field: key,
-      headerFilter: true
-    }));
+    let columnKeys = Object.keys(data[0]);
 
-    // Создаём таблицу
-    new Tabulator(container, {
-      data: data,
-      columns: columns,
-      height: 400,
-      layout: "fitColumns",
-      pagination: true,
-      paginationSize: 100,
-      placeholder: "Нет данных для отображения",
-      responsiveLayout: "collapse",
-    });
+    if (customColumnOrder[id]) {
+      const defined = customColumnOrder[id];
+      const rest = columnKeys.filter(k => !defined.includes(k));
+      columnKeys = [...defined, ...rest];
+    }
+
+    const seen = new Set();
+    const columns = columnKeys
+      .filter(key => {
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map(key => ({
+        title: key,
+        field: key,
+        headerFilter: true
+      }));
+
+      const layoutMode = id === "rawTable" ? "fitData" : "fitColumns";
+
+      new Tabulator(container, {
+        data: data,
+        columns: columns,
+        height: 400,
+        layout: layoutMode,
+        responsiveLayout: false,  // отключаем автоматическое скрытие колонок
+        pagination: true,
+        paginationSize: 100,
+        placeholder: "Нет данных для отображения",
+      });
+
+    // // Создаём таблицу
+    // new Tabulator(container, {
+    //   data: data,
+    //   columns: columns,
+    //   height: 400,
+    //   layout: "fitColumns",
+    //   pagination: true,
+    //   paginationSize: 100,
+    //   placeholder: "Нет данных для отображения",
+    //   responsiveLayout: "collapse",
+    // });
   });
 }
 

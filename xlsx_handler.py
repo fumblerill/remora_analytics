@@ -11,7 +11,6 @@ def load_error_reference(table_id: str = "errorsDictTable") -> str | None:
     Возвращает HTML-таблицу справочника ошибок.
     """
     if not ERROR_REF_PATH.exists():
-        print("[DEBUG] Справочник не найден:", ERROR_REF_PATH)
         return None
     try:
         df = pd.read_excel(ERROR_REF_PATH)
@@ -30,7 +29,6 @@ def load_error_reference_dataframe() -> pd.DataFrame:
     Возвращает DataFrame справочника ошибок.
     """
     if not ERROR_REF_PATH.exists():
-        print("[DEBUG] Справочник не найден:", ERROR_REF_PATH)
         return pd.DataFrame()
     try:
         return pd.read_excel(ERROR_REF_PATH)
@@ -46,8 +44,6 @@ def generate_tables(xlsx_bytes: bytes) -> dict[str, str | dict[str, str]]:
 
     df_errors = load_error_reference_dataframe()
     df = pd.read_excel(io.BytesIO(xlsx_bytes), skiprows=1)
-    for col in df.columns:
-        print(f"{repr(col)} → {[ord(c) for c in col]}")
     df.columns = (
         pd.Series(df.columns)
         .astype(str)

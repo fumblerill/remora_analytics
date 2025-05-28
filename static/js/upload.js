@@ -17,10 +17,64 @@ const customColumnOrder = {
   ]
 };
 
+var minMaxFilterEditor = function(cell, onRendered, success, cancel, editorParams){
+  var end;
+  var container = document.createElement("span");
+
+  var start = document.createElement("input");
+  start.setAttribute("type", "number");
+  start.setAttribute("placeholder", "Min");
+  start.style.padding = "4px";
+  start.style.width = "50%";
+  start.style.boxSizing = "border-box";
+  start.value = cell.getValue();
+
+  function buildValues(){
+    success({ start: start.value, end: end.value });
+  }
+
+  function keypress(e){
+    if(e.keyCode == 13) buildValues();
+    if(e.keyCode == 27) cancel();
+  }
+
+  end = start.cloneNode();
+  end.setAttribute("placeholder", "Max");
+
+  start.addEventListener("change", buildValues);
+  start.addEventListener("blur", buildValues);
+  start.addEventListener("keydown", keypress);
+
+  end.addEventListener("change", buildValues);
+  end.addEventListener("blur", buildValues);
+  end.addEventListener("keydown", keypress);
+
+  container.appendChild(start);
+  container.appendChild(end);
+
+  return container;
+};
+
+function minMaxFilterFunction(headerValue, rowValue, rowData, filterParams){
+  if(rowValue != null && rowValue !== ""){
+    if(headerValue.start != ""){
+      if(headerValue.end != ""){
+        return rowValue >= headerValue.start && rowValue <= headerValue.end;
+      } else {
+        return rowValue >= headerValue.start;
+      }
+    } else {
+      if(headerValue.end != ""){
+        return rowValue <= headerValue.end;
+      }
+    }
+  }
+  return true;
+}
+
 function initTabulators() {
-  // Находим все шаблоны с JSON (по ID, заканчивающемуся на -json)
   document.querySelectorAll("template[id$='-json']").forEach(template => {
-    const id = template.id.replace("-json", ""); // например: statisticsTable-json → statisticsTable
+    const id = template.id.replace("-json", "");
     const container = document.getElementById(id);
 
     if (!container) {
@@ -28,9 +82,7 @@ function initTabulators() {
       return;
     }
 
-    // Получаем строку JSON из шаблона
     const jsonString = template.innerHTML.trim();
-
     if (!jsonString) {
       console.error(`❌ Шаблон с ID '${template.id}' пуст`);
       return;
@@ -49,8 +101,17 @@ function initTabulators() {
       return;
     }
 
-    let columnKeys = Object.keys(data[0]);
+    const uniqueValuesByField = {};
+    data.forEach(row => {
+      Object.entries(row).forEach(([field, value]) => {
+        if (value !== undefined && value !== null) {
+          if (!uniqueValuesByField[field]) uniqueValuesByField[field] = new Set();
+          uniqueValuesByField[field].add(value);
+        }
+      });
+    });
 
+    let columnKeys = Object.keys(data[0]);
     if (customColumnOrder[id]) {
       const defined = customColumnOrder[id];
       const rest = columnKeys.filter(k => !defined.includes(k));
@@ -64,36 +125,47 @@ function initTabulators() {
         seen.add(key);
         return true;
       })
-      .map(key => ({
-        title: key,
-        field: key,
-        headerFilter: true
-      }));
+      .map(key => {
+        // Определяем числовой ли столбец (по первому значению)
+        const firstVal = data.find(row => row[key] !== undefined && row[key] !== null)?.[key];
+        const isNumber = typeof firstVal === "number";
 
-      const layoutMode = id === "rawTable" ? "fitData" : "fitColumns";
-
-      new Tabulator(container, {
-        data: data,
-        columns: columns,
-        height: 400,
-        layout: layoutMode,
-        responsiveLayout: false,  // отключаем автоматическое скрытие колонок
-        pagination: true,
-        paginationSize: 100,
-        placeholder: "Нет данных для отображения",
+        if (isNumber) {
+          // Числовой столбец — ставим кастомный фильтр мин-макс
+          return {
+            title: key,
+            field: key,
+            headerFilter: minMaxFilterEditor,
+            headerFilterFunc: minMaxFilterFunction,
+            headerFilterLiveFilter: false
+          };
+        } else {
+          // Все остальные — фильтр список с уникальными значениями
+          return {
+            title: key,
+            field: key,
+            headerFilter: "list",
+            headerFilterParams: {
+              values: Array.from(uniqueValuesByField[key] || []),
+              clearable: true
+            },
+            headerFilterLiveFilter: false
+          };
+        }
       });
 
-    // // Создаём таблицу
-    // new Tabulator(container, {
-    //   data: data,
-    //   columns: columns,
-    //   height: 400,
-    //   layout: "fitColumns",
-    //   pagination: true,
-    //   paginationSize: 100,
-    //   placeholder: "Нет данных для отображения",
-    //   responsiveLayout: "collapse",
-    // });
+    const layoutMode = id === "rawTable" ? "fitData" : "fitColumns";
+
+    new Tabulator(container, {
+      data,
+      columns,
+      height: 400,
+      layout: layoutMode,
+      responsiveLayout: false,
+      pagination: true,
+      paginationSize: 100,
+      placeholder: "Нет данных для отображения",
+    });
   });
 }
 

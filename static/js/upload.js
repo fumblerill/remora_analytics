@@ -1,90 +1,84 @@
-// Инициализация всех таблиц DataTables с фильтрами
-function initDataTables() {
-  console.log("⚙️ initDataTables стартанул");
+function initTabulators() {
+  // Находим все шаблоны с JSON (по ID, заканчивающемуся на -json)
+  document.querySelectorAll("template[id$='-json']").forEach(template => {
+    const id = template.id.replace("-json", ""); // например: statisticsTable-json → statisticsTable
+    const container = document.getElementById(id);
 
-  document.querySelectorAll("table[id]").forEach((table) => {
-    const id = table.getAttribute("id");
-    console.log("🧾 Обрабатываем таблицу:", id);
-
-    // Пропускаем, если таблица уже инициализирована
-    if ($.fn.DataTable.isDataTable(`#${id}`)) return;
-
-    const dt = $(`#${id}`).DataTable({
-      pageLength: 100,
-      scrollY: "300px",
-      scrollCollapse: true,
-      autoWidth: false,
-      scrollX: true,
-      lengthMenu: [100],
-      language: { url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/ru.json" },
-      dom: 't<"row mt-3"<"col-sm-6"l><"col-sm-6 text-end"p>>',
-      orderCellsTop: true,
-    });
-
-    console.log("✅ DataTable инициализирован:", id);
-
-    // Прячем пагинацию и length, если всё влезает на одну страницу
-    const info = dt.page.info();
-    if (info.recordsTotal <= info.length) {
-      $(`#${id}_paginate`).hide();
-      $(`#${id}_length`).hide();
+    if (!container) {
+      console.warn(`⚠️ Контейнер с ID '${id}' не найден`);
+      return;
     }
 
-    // Добавляем вторую строку заголовка для фильтров
-    $(`#${id} thead tr`).clone(true).appendTo(`#${id} thead`);
-    $(`#${id} thead tr:eq(1) th`).each(function (i) {
-      const column = dt.column(i);
-      const uniqueValues = column.data().unique().toArray();
+    // Получаем строку JSON из шаблона
+    const jsonString = template.innerHTML.trim();
 
-      const isNumeric = uniqueValues.every(val =>
-        !isNaN(parseFloat(val.toString().replace(",", ".")))
-      );
+    if (!jsonString) {
+      console.error(`❌ Шаблон с ID '${template.id}' пуст`);
+      return;
+    }
 
-      // ======== Текстовый/категориальный фильтр ========
-      if (!isNumeric) {
-        const select = $('<select class="form-select form-select-sm" multiple></select>')
-          .appendTo($(this).empty())
-          .on("change", function () {
-            const val = $(this).val();
-            column.search(val && val.length ? val.join("|") : "", true, false).draw();
-          });
+    let data;
+    try {
+      data = JSON.parse(jsonString);
+    } catch (error) {
+      console.error(`❌ Ошибка при парсинге JSON для '${id}':`, error);
+      return;
+    }
 
-        uniqueValues.sort().forEach((val) => {
-          if (val && val.length <= 50) {
-            select.append(`<option value="${val}">${val}</option>`);
-          }
-        });
+    if (!Array.isArray(data) || data.length === 0) {
+      container.innerHTML = "<p class='text-muted'>Нет данных для отображения</p>";
+      return;
+    }
 
-        // Активируем Select2
-        select.select2({ width: '100%' });
-      } else {
-        // ======== Числовой столбец: пока без фильтра ========
-        $(this).empty();
-      }
+    // Автоматически генерируем колонки из ключей первой строки
+    const columns = Object.keys(data[0]).map(key => ({
+      title: key,
+      field: key,
+      headerFilter: true
+    }));
+
+    // Создаём таблицу
+    new Tabulator(container, {
+      data: data,
+      columns: columns,
+      height: 400,
+      layout: "fitColumns",
+      pagination: true,
+      paginationSize: 100,
+      placeholder: "Нет данных для отображения",
+      responsiveLayout: "collapse",
     });
   });
+
+  console.log(`✅ Таблица '${id}' отрисована`);
 }
+
 
 // Показ контента после загрузки и удаление прелоадера
 function startPage() {
+  try {
+    console.log("Выполнение startPage")
+    initTabulators();
+  } catch (e) {
+    console.error("🔥 Ошибка в startPage:", e);
+  }
+
   const wrapper = document.getElementById("content-wrapper");
   const preloader = document.getElementById("preloader");
 
-  if (!wrapper) {
-    console.error("❌ wrapper не найден");
-    return;
+  if (wrapper) {
+    wrapper.style.display = "block";
+    setTimeout(() => {
+      wrapper.style.opacity = "1";
+      if (preloader) preloader.remove();
+    }, 100);
   }
-
-  initDataTables();
-
-  wrapper.style.display = "block";
-  setTimeout(() => {
-    wrapper.style.opacity = "1";
-    if (preloader) preloader.remove();
-  }, 100);
 }
+
 
 // Запуск после полной загрузки страницы
 window.addEventListener("load", () => {
-  setTimeout(startPage, 50);
+  setTimeout(() => {
+    startPage();
+  }, 50);
 });

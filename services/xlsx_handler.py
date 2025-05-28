@@ -37,15 +37,15 @@ def load_error_reference_dataframe() -> pd.DataFrame:
         print(f"[ERROR] Ошибка загрузки справочника: {e}")
         return pd.DataFrame()
     
-def render_df(df: pd.DataFrame, table_id: str) -> str:
-    df = df.fillna("")
-    return df.to_html(
-        table_id=table_id,
-        classes="table table-sm table-striped table-bordered",
-        index=False,
-        escape=False,
-        border=0
-    ).replace("<table ", '<table style="width:100%" ')
+# def render_df(df: pd.DataFrame, table_id: str) -> str:
+#     df = df.fillna("")
+#     return df.to_html(
+#         table_id=table_id,
+#         classes="table table-sm table-striped table-bordered",
+#         index=False,
+#         escape=False,
+#         border=0
+#     ).replace("<table ", '<table style="width:100%" ')
 
 # =================== Обработка .xlsx и генерация HTML-таблиц ===================
 
@@ -73,23 +73,44 @@ def generate_tables(xlsx_bytes: bytes) -> dict[str, str | dict[str, str]]:
     summary_stats = display_summary(df_statistics, df_doc_perf)
     min_date, max_date = get_date(df)
 
+    # Преобразуем все датафреймы с потенциальными Timestamp
+    df_raw = convert_datetime(df_raw)
+    df_statistics = convert_datetime(df_statistics)
+    df_doc_perf = convert_datetime(df_doc_perf)
+    df_types = convert_datetime(df_types)
+    df_cert_errors = convert_datetime(df_cert_errors)
+    df_errors = convert_datetime(df_errors)
+    
     return {
-        "tables": {
-            "raw": render_df(df_raw, "rawTable"),
-            "statistics": render_df(df_statistics, "statisticsTable"),
-            "doc_perf_500": render_df(df_doc_perf, "docPerfTable"),
-            "types": render_df(df_types, "typesTable"),
-            "cert_errors": render_df(df_cert_errors, "certErrorsTable"),
-            "reference": load_error_reference("errorsDictTable"),
-        },
+        # Таблицы как списки словарей (JSON-ready)
+        "raw_data": df_raw.fillna("").to_dict(orient="records"),
+        "statistics_data": df_statistics.reset_index(drop=True).to_dict(orient="records"),
+        "doc_perf_data": df_doc_perf.to_dict(orient="records"),
+        "types_data": df_types.to_dict(orient="records"),
+        "cert_errors_data": df_cert_errors.to_dict(orient="records"),
+        "reference_data": df_errors.fillna("").to_dict(orient="records"),
+
+        # Данные для графиков
         "pie_labels": pie_labels,
         "pie_values": pie_values,
         "bar_labels": bar_labels,
         "bar_values": bar_values,
+
+        # Общая сводка и период
         "summary": summary_stats,
         "min_date": min_date,
         "max_date": max_date,
     }
+
+
+def convert_datetime(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Приводит все datetime-столбцы в строковый формат, чтобы избежать ошибок сериализации JSON.
+    """
+    df = df.copy()
+    for col in df.select_dtypes(include=["datetime64[ns]", "datetime64[ns, UTC]"]):
+        df[col] = df[col].astype(str)
+    return df
 
 
 def process_main_file(df_main: pd.DataFrame, df_errors: pd.DataFrame) -> pd.DataFrame:

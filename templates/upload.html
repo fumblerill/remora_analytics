@@ -33,11 +33,17 @@
     <div class="row mb-4">
       <div class="col-md-6 section" id="statistics">
         <h5>📊 Статистика по СЭМД в РЭМД</h5>
-        {{ tables.statistics | safe }}
+        <div id="statisticsTable"></div>
+        <template id="statisticsTable-json" type="application/json">
+          {{ statistics_data | tojson | safe }}
+        </template>
       </div>
       <div class="col-md-6 section" id="doc_perf_500">
         <h5>👨‍⚕️ Врачи, выполнившие > 500 СЭМД</h5>
-        {{ tables.doc_perf_500 | safe }}
+        <div id="docPerfTable"></div>
+        <template id="docPerfTable-json" type="application/json">
+          {{ doc_perf_data | tojson | safe }}
+        </template>
       </div>
     </div>
 
@@ -65,25 +71,30 @@
     <div class="row mb-4">
       <div class="col-md-6 section" id="types">
         <h5>📑 Статистика по видам СЭМД</h5>
-        {{ tables.types | safe }}
+        <div id="typesTable"></div>
+        <template id="typesTable-json" type="application/json">
+          {{ types_data | tojson | safe }}
+        </template>
       </div>
       <div class="col-md-6 section" id="cert_errors">
         <h5>🔐 Ошибки при выборе сертификата</h5>
-        {{ tables.cert_errors | safe }}
+        <div id="certErrorsTable"></div>
+        <template id="certErrorsTable-json" type="application/json">
+          {{ cert_errors_data | tojson | safe }}
+        </template>
       </div>
     </div>
 
     <!-- 📋 Исходные данные -->
     <div class="section" id="raw">
       <h5>📋 Исходные данные</h5>
-      {% if tables and tables.raw %}
-        <details>
-          <summary class="btn btn-outline-primary">📂 Показать таблицу</summary>
-          {{ tables.raw | safe }}
-        </details>
-      {% else %}
-        <p><em>Нет данных</em></p>
-      {% endif %}
+      <details>
+        <summary class="btn btn-outline-primary">📂 Показать таблицу</summary>
+        <div id="rawTable"></div>
+        <template id="rawTable-json" type="application/json">
+          {{ raw_data | tojson | safe }}
+        </template>
+      </details>
     </div>
 
     <!-- 📖 Справочник ошибок -->
@@ -91,10 +102,12 @@
       <h5>📖 Справочник ошибок</h5>
       <details>
         <summary class="btn btn-outline-secondary">🔍 Показать справочник</summary>
-        {{ tables.reference | safe }}
+        <div id="errorsDictTable"></div>
+        <template id="errorsDictTable-json" type="application/json">
+          {{ reference_data | tojson | safe }}
+        </template>
       </details>
     </div>
-  </div>
 {% endif %}
 
 {% block scripts %}
@@ -108,15 +121,123 @@
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
+<!-- Tabulator -->
+<link href="https://unpkg.com/tabulator-tables@6.2.1/dist/css/tabulator.min.css" rel="stylesheet">
+<script src="https://unpkg.com/tabulator-tables@6.2.1/dist/js/tabulator.min.js"></script>
+
 <!-- Основной скрипт -->
 <script src="{{ url_for('static', path='js/upload.js') }}"></script>
 
 <!-- Передаём данные для диаграмм -->
 <script>
-  const barLabels = {{ bar_labels | default([]) | tojson }};
-  const barValues = {{ bar_values | default([]) | tojson }};
-  const pieLabels = {{ pie_labels | default([]) | tojson }};
-  const pieValues = {{ pie_values | default([]) | tojson }};
+// Данные из шаблона
+const barLabels = {{ bar_labels | default([]) | tojson }};
+const barValues = {{ bar_values | default([]) | tojson }};
+const pieLabels = {{ pie_labels | default([]) | tojson }};
+const pieValues = {{ pie_values | default([]) | tojson }};
+
+// Цвета для столбцов (Set1 палитра ColorBrewer)
+const backgroundColors = [
+  '#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00',
+  '#ffff33', '#a65628', '#f781bf', '#999999', '#66c2a5', '#fc8d62'
+];
+const barColors = barLabels.map((_, i) => backgroundColors[i % backgroundColors.length]);
+
+// Настройка столбчатой диаграммы (вертикальная, легенда справа)
+const ctxBar = document.getElementById('barChart').getContext('2d');
+
+if (window.barChartInstance) {
+  window.barChartInstance.destroy();
+}
+
+window.barChartInstance = new Chart(ctxBar, {
+  type: 'bar',
+  data: {
+    labels: barLabels,
+    datasets: [{
+      data: barValues,
+      backgroundColor: barColors,
+      borderRadius: 4,
+      borderWidth: 1
+    }]
+  },
+  options: {
+    indexAxis: 'x', // вертикальные столбцы
+    responsive: true,
+    plugins: {
+      legend: {
+        display: true,
+        position: 'right',
+        labels: {
+          generateLabels: (chart) => chart.data.labels.map((label, i) => ({
+            text: label,
+            fillStyle: barColors[i],
+            strokeStyle: barColors[i],
+            index: i
+          }))
+        }
+      },
+      datalabels: {
+        display: false // отключены подписи на столбцах
+      }
+    },
+    scales: {
+      x: {
+        beginAtZero: false,
+        ticks: {
+          display: false // Отключаем подписи под столбцами (оси X)
+        },
+        grid: {
+          display: false
+        }
+      },
+      y: {
+        beginAtZero: true,
+        ticks: { precision: 0 }
+      }
+    }
+  },
+  plugins: [ChartDataLabels]
+});
+
+// Круговая диаграмма
+const ctxPie = document.getElementById('pieChart').getContext('2d');
+
+if (window.pieChartInstance) {
+  window.pieChartInstance.destroy();
+}
+
+window.pieChartInstance = new Chart(ctxPie, {
+  type: 'pie',
+  data: {
+    labels: pieLabels,
+    datasets: [{
+      data: pieValues,
+      backgroundColor: backgroundColors.slice(0, pieValues.length)
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    layout: { padding: { top: 20, bottom: 20 } },
+    plugins: {
+      legend: {
+        position: 'right',
+        labels: { padding: 20 }
+      },
+      datalabels: {
+        color: '#000',
+        font: { weight: 'bold' },
+        formatter: (value, context) => {
+          const data = context.chart.data.datasets[0].data;
+          const total = data.reduce((a, b) => a + b, 0);
+          return ((value / total) * 100).toFixed(1) + '%';
+        }
+      }
+    }
+  },
+  plugins: [ChartDataLabels]
+});
 </script>
 {% endblock %}
 {% endblock %}

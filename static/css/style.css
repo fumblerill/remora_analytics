@@ -50,3 +50,9 @@ details summary {
   cursor: pointer;
   margin-bottom: 0.5rem;
 }
+
+.tabulator .tabulator-header .tabulator-col {
+  white-space: normal !important;
+  height: auto !important;
+  line-height: 1.2em;
+}

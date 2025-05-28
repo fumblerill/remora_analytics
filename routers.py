@@ -26,17 +26,28 @@ async def upload(request: Request, file: UploadFile = File(...)):
         })
 
     contents = await file.read()
-    tables_data = generate_tables(contents)
+    data = generate_tables(contents)
 
     return request.app.templates.TemplateResponse("upload.html", {
         "request": request,
         "filename": file.filename,
-        "tables": tables_data["tables"],
-        "pie_labels": tables_data["pie_labels"],
-        "pie_values": tables_data["pie_values"],
-        "bar_labels": tables_data["bar_labels"],
-        "bar_values": tables_data["bar_values"],
-        "summary": tables_data["summary"],
-        "min_date": tables_data["min_date"],
-        "max_date": tables_data["max_date"]
+
+        # JSON-данные для Tabulator
+        "raw_data": data["raw_data"],
+        "statistics_data": data["statistics_data"],
+        "doc_perf_data": data["doc_perf_data"],
+        "types_data": data["types_data"],
+        "cert_errors_data": data["cert_errors_data"],
+        "reference_data": data["reference_data"],
+
+        # Данные для диаграмм
+        "pie_labels": data["pie_labels"],
+        "pie_values": data["pie_values"],
+        "bar_labels": data["bar_labels"],
+        "bar_values": data["bar_values"],
+
+        # Сводка и даты
+        "summary": data["summary"],
+        "min_date": data["min_date"],
+        "max_date": data["max_date"]
     })

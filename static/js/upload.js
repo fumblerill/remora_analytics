@@ -54,6 +54,7 @@ function initTabulators() {
 function initCharts() {
   const barCanvas = document.getElementById('barChart');
   const pieCanvas = document.getElementById('pieChart');
+
   const { barLabels, barValues, pieLabels, pieValues } = window.chartData;
 
   const backgroundColors = [

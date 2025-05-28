@@ -64,6 +64,9 @@
     {% endif %}
 </div>
 
-{% block scripts %}{% endblock %}
+{% if filename %}
+  {% block scripts %}{% endblock %}
+{% endif %}
+
 </body>
 </html>

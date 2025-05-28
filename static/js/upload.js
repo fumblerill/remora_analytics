@@ -49,15 +49,12 @@ function initTabulators() {
       responsiveLayout: "collapse",
     });
   });
-
-  console.log(`✅ Таблица '${id}' отрисована`);
 }
 
 
 // Показ контента после загрузки и удаление прелоадера
 function startPage() {
   try {
-    console.log("Выполнение startPage")
     initTabulators();
   } catch (e) {
     console.error("🔥 Ошибка в startPage:", e);
@@ -79,6 +76,6 @@ function startPage() {
 // Запуск после полной загрузки страницы
 window.addEventListener("load", () => {
   setTimeout(() => {
-    startPage();
+      startPage();
   }, 50);
 });

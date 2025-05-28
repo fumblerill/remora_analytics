@@ -54,11 +54,16 @@
 
 <!-- Контент -->
 <div class="content">
-  {% block content %}{% endblock %}
+    {# Сообщение при отсутствии файла #}
+    {% if not filename %}
+    <div class="d-flex justify-content-center align-items-center" style="min-height: 80vh;">
+        <h2 class="text-primary text-center">Загрузите .xlsx файл, чтобы увидеть аналитику</h2>
+    </div>
+    {% else %}
+        {% block content %}{% endblock %}
+    {% endif %}
 </div>
 
-<!-- Подключаем Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

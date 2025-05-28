@@ -51,11 +51,97 @@ function initTabulators() {
   });
 }
 
+function initCharts() {
+  const barCanvas = document.getElementById('barChart');
+  const pieCanvas = document.getElementById('pieChart');
+  const { barLabels, barValues, pieLabels, pieValues } = window.chartData;
+
+  const backgroundColors = [
+    '#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00',
+    '#ffff33', '#a65628', '#f781bf', '#999999', '#66c2a5', '#fc8d62'
+  ];
+  const barColors = barLabels.map((_, i) => backgroundColors[i % backgroundColors.length]);
+
+  const ctxBar = barCanvas.getContext('2d');
+  if (window.barChartInstance) window.barChartInstance.destroy();
+  window.barChartInstance = new Chart(ctxBar, {
+    type: 'bar',
+    data: {
+      labels: barLabels,
+      datasets: [{
+        data: barValues,
+        backgroundColor: barColors,
+        borderRadius: 4,
+        borderWidth: 1
+      }]
+    },
+    options: {
+      indexAxis: 'x',
+      responsive: true,
+      plugins: {
+        legend: {
+          display: true,
+          position: 'right',
+          labels: {
+            generateLabels: (chart) =>
+              chart.data.labels.map((label, i) => ({
+                text: label,
+                fillStyle: barColors[i],
+                strokeStyle: barColors[i],
+                index: i
+              }))
+          }
+        },
+        datalabels: { display: false }
+      },
+      scales: {
+        x: { beginAtZero: false, ticks: { display: false }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { precision: 0 } }
+      }
+    },
+    plugins: [ChartDataLabels]
+  });
+
+  const ctxPie = pieCanvas.getContext('2d');
+  if (window.pieChartInstance) window.pieChartInstance.destroy();
+  window.pieChartInstance = new Chart(ctxPie, {
+    type: 'pie',
+    data: {
+      labels: pieLabels,
+      datasets: [{
+        data: pieValues,
+        backgroundColor: backgroundColors.slice(0, pieValues.length)
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { top: 20, bottom: 20 } },
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: { padding: 20 }
+        },
+        datalabels: {
+          color: '#000',
+          font: { weight: 'bold' },
+          formatter: (value, context) => {
+            const data = context.chart.data.datasets[0].data;
+            const total = data.reduce((a, b) => a + b, 0);
+            return ((value / total) * 100).toFixed(1) + '%';
+          }
+        }
+      }
+    },
+    plugins: [ChartDataLabels]
+  });
+}
 
 // Показ контента после загрузки и удаление прелоадера
 function startPage() {
   try {
     initTabulators();
+    initCharts();
   } catch (e) {
     console.error("🔥 Ошибка в startPage:", e);
   }
@@ -71,7 +157,6 @@ function startPage() {
     }, 100);
   }
 }
-
 
 // Запуск после полной загрузки страницы
 window.addEventListener("load", () => {

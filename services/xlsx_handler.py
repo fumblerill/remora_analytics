@@ -3,7 +3,12 @@ import io
 
 from settings import ERROR_REF_PATH
 
+# =================== Загрузка справочника ошибок ===================
+
 def load_error_reference(table_id: str = "errorsDictTable") -> str | None:
+    """
+    Возвращает HTML-таблицу справочника ошибок.
+    """
     if not ERROR_REF_PATH.exists():
         print("[DEBUG] Справочник не найден:", ERROR_REF_PATH)
         return None
@@ -20,6 +25,9 @@ def load_error_reference(table_id: str = "errorsDictTable") -> str | None:
         return None
     
 def load_error_reference_dataframe() -> pd.DataFrame:
+    """
+    Возвращает DataFrame справочника ошибок.
+    """
     if not ERROR_REF_PATH.exists():
         print("[DEBUG] Справочник не найден:", ERROR_REF_PATH)
         return pd.DataFrame()
@@ -39,21 +47,72 @@ def render_df(df: pd.DataFrame, table_id: str) -> str:
         border=0
     ).replace("<table ", '<table style="width:100%" ')
 
-# Функция обработки основного датафрейма по описанию ошибок из справочника
-def process_main_file(df_main, df_errors):
+# =================== Обработка .xlsx и генерация HTML-таблиц ===================
+
+def generate_tables(xlsx_bytes: bytes) -> dict[str, str | dict[str, str]]:
+    """
+    Основная функция обработки загруженного файла.
+    Возвращает таблицы, диаграммы, статистику и период дат.
+    """
+
+    df_errors = load_error_reference_dataframe()
+    df = pd.read_excel(io.BytesIO(xlsx_bytes), skiprows=1)
+    df_processed = process_main_file(df, df_errors)
+
+    # Удаляем строки с итогами, например: "Всего: 1234"
+    df_raw = df_processed[
+        ~df_processed.apply(lambda row: row.astype(str).str.contains(r"^Всего:\s*\d+$", regex=True)).any(axis=1)
+        ]
+
+    df_statistics = create_summary_by_department(df)
+    df_doc_perf = create_summary_by_employee_threshold(df)
+    df_types = create_summary_by_type(df)
+    df_cert_errors = create_summary_by_value_mismatch_threshold(df)
+    pie_labels, pie_values = create_status_chart_data(df_statistics)
+    bar_labels, bar_values = create_error_diagram(df_processed)
+    summary_stats = display_summary(df_statistics, df_doc_perf)
+    min_date, max_date = get_date(df)
+
+    return {
+        "tables": {
+            "raw": render_df(df_raw, "rawTable"),
+            "statistics": render_df(df_statistics, "statisticsTable"),
+            "doc_perf_500": render_df(df_doc_perf, "docPerfTable"),
+            "types": render_df(df_types, "typesTable"),
+            "cert_errors": render_df(df_cert_errors, "certErrorsTable"),
+            "reference": load_error_reference("errorsDictTable"),
+        },
+        "pie_labels": pie_labels,
+        "pie_values": pie_values,
+        "bar_labels": bar_labels,
+        "bar_values": bar_values,
+        "summary": summary_stats,
+        "min_date": min_date,
+        "max_date": max_date,
+    }
+
+
+def process_main_file(df_main: pd.DataFrame, df_errors: pd.DataFrame) -> pd.DataFrame:
+    """
+    Извлекает коды ошибок из описаний и добавляет к ним расшифровку из справочника.
+    """
+
+    # Пытаемся извлечь код ошибки из текста по нескольким шаблонам
     df_main['Код ошибки'] = df_main['Описание'].str.extract(r"Code:\s*(\w+)", expand=False)
 
+    # Альтернативные шаблоны, если первый не дал результата
     df_main['Код ошибки'] = df_main['Код ошибки'].fillna(
         df_main['Описание'].str.extract(r"Ошибка:\s*([\w\s]+?)(?:[:\[]|$)", expand=False)
     )
-
     df_main['Код ошибки'] = df_main['Код ошибки'].fillna(
         df_main['Описание'].str.extract(r"(CommunicationException|FaultException):", expand=False)
     )
 
+    # Убираем лишние пробелы
     df_main['Код ошибки'] = df_main['Код ошибки'].str.strip()
 
-    df_result = pd.merge(
+    # Сопоставляем с описанием из справочника по полю "Код ответа"
+    df_merged = pd.merge(
         df_main,
         df_errors[['Код ответа', 'Описание']].rename(columns={'Описание': 'Описание ошибки'}),
         how='left',
@@ -61,34 +120,46 @@ def process_main_file(df_main, df_errors):
         right_on='Код ответа'
     )
 
-    df_result['Описание'] = df_result.apply(
-        lambda row: "Отсутствует в справочнике" if pd.notna(row['Код ошибки']) and pd.isna(row['Код ответа'])
-        else row['Описание ошибки'] if pd.notna(row['Код ответа'])
-        else row['Описание'],
+    # Вставляем финальное описание ошибки с учётом справочника
+    df_merged['Описание'] = df_merged.apply(
+        lambda row: "Отсутствует в справочнике"
+        if pd.notna(row['Код ошибки']) and pd.isna(row['Код ответа']) else
+        row['Описание ошибки']
+        if pd.notna(row['Код ответа']) else
+        row['Описание'],
         axis=1
     )
 
-    df_result.drop(columns=['Код ответа', 'Описание ошибки'], inplace=True, errors='ignore')
+    # Удаляем технические поля
+    df_merged.drop(columns=['Код ответа', 'Описание ошибки'], inplace=True, errors='ignore')
 
-    return df_result
+    return df_merged
 
-# Функция вывода статистики по СЭМД в РЭМД
+
 def create_summary_by_department(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Формирует сводную таблицу по сотрудникам и отделениям:
+    количество СЭМД с разными статусами и агрегированные итоги.
+    """
+
     df = df.copy()
 
+    # Преобразуем категориальные поля и ФИО в строки
     for col in df.select_dtypes(include=['category']).columns:
         df[col] = df[col].astype(str)
-
     df['Сотрудник, сформировавший СЭМД'] = df['Сотрудник, сформировавший СЭМД'].astype(str)
 
+    # Фильтрация: удаляем пустые строки и NaN по ключевому столбцу
     df = df[
         df['Сотрудник, сформировавший СЭМД'].str.strip().notnull() &
         (df['Сотрудник, сформировавший СЭМД'] != 'nan') &
         (df['Сотрудник, сформировавший СЭМД'] != '')
     ]
 
+    # Получаем уникальные пары "Сотрудник – Отделение"
     unique_pairs = df[['Сотрудник, сформировавший СЭМД', 'Отделение МО']].drop_duplicates()
 
+    # Создаём сводную таблицу: количество СЭМД по статусам
     pivot = (
         df.groupby(['Отделение МО', 'Сотрудник, сформировавший СЭМД', 'Статус передачи СЭМД'])
         .size()
@@ -96,17 +167,18 @@ def create_summary_by_department(df: pd.DataFrame) -> pd.DataFrame:
         .reset_index()
     )
 
+    # Обязательные колонки для подсчёта агрегатов
     required_cols = [
         'Зарегистрирован в Нетрике',
         'Зарегистрирован в РЭМД',
         'Отказано в регистрации в Нетрике',
         'Отказано в регистрации в РЭМД'
     ]
-
     for col in required_cols:
         if col not in pivot.columns:
             pivot[col] = 0
 
+    # Агрегированные столбцы: успешно и отказано
     pivot['СЭМД успешно зарегистрированных в РЭМД'] = (
         pivot['Зарегистрирован в Нетрике'] + pivot['Зарегистрирован в РЭМД']
     )
@@ -114,41 +186,69 @@ def create_summary_by_department(df: pd.DataFrame) -> pd.DataFrame:
         pivot['Отказано в регистрации в Нетрике'] + pivot['Отказано в регистрации в РЭМД']
     )
 
+    # Удаляем вспомогательные поля
     pivot.drop(columns=required_cols, inplace=True)
 
-    pivot.insert(2, 'СЭМД успешно зарегистрированных в РЭМД',
-                 pivot.pop('СЭМД успешно зарегистрированных в РЭМД'))
-
+    # Объединяем со списком сотрудников, чтобы вернуть "нулевые" значения
     result = pd.merge(unique_pairs, pivot,
                       on=['Отделение МО', 'Сотрудник, сформировавший СЭМД'],
                       how='left').fillna(0)
 
+    # Переносим "Отделение МО" в начало таблицы
     cols = result.columns.tolist()
     cols.insert(0, cols.pop(cols.index('Отделение МО')))
     result = result[cols]
 
+    # Приводим float → int, где это возможно
     for col in result.columns:
-        if result[col].dtype == 'float':
+        if pd.api.types.is_float_dtype(result[col]):
             result[col] = result[col].astype(int)
 
     return result
 
-# Функция сводной таблицы по сотрудникам, выполнившим норму в 500 СЭМД
-def create_summary_by_employee_threshold(df: pd.DataFrame, threshold=500) -> pd.DataFrame:
-    successful_records = df[df['Статус передачи СЭМД'].isin(['Зарегистрирован в РЭМД', 'Зарегистрирован в Нетрике'])]
 
-    employee_summary = successful_records['Сотрудник, сформировавший СЭМД'].value_counts().reset_index()
+def create_summary_by_employee_threshold(df: pd.DataFrame, threshold: int = 500) -> pd.DataFrame:
+    """
+    Возвращает таблицу сотрудников, которые выполнили не менее `threshold` успешно зарегистрированных СЭМД.
+    """
 
+    # Фильтруем только успешные записи
+    successful_records = df[
+        df['Статус передачи СЭМД'].isin(['Зарегистрирован в РЭМД', 'Зарегистрирован в Нетрике'])
+    ]
+
+    # Считаем количество успешных записей по каждому сотруднику
+    employee_summary = (
+        successful_records['Сотрудник, сформировавший СЭМД']
+        .value_counts()
+        .reset_index()
+    )
     employee_summary.columns = ['Сотрудник, сформировавший СЭМД', 'Количество СЭМД']
 
+    # Приводим к числам на всякий случай
+    employee_summary['Количество СЭМД'] = pd.to_numeric(employee_summary['Количество СЭМД'], errors='coerce').fillna(0).astype(int)
+
+    # Фильтрация по порогу
     filtered_summary = employee_summary[employee_summary['Количество СЭМД'] >= threshold]
 
     return filtered_summary
 
-# Функция сводной таблицы по видам СЭМД
-def create_summary_by_type(df: pd.DataFrame) -> pd.DataFrame:
-    pivot_table = df.groupby(['Вид СЭМД', 'Статус передачи СЭМД']).size().unstack(fill_value=0).reset_index()
 
+def create_summary_by_type(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Возвращает таблицу с количеством СЭМД по каждому виду и статусу передачи.
+    Включает агрегированные поля: успешно зарегистрировано и отказано в регистрации.
+    """
+
+    # Группируем по виду СЭМД и статусу, считаем количество
+    pivot_table = (
+        df.groupby(['Вид СЭМД', 'Статус передачи СЭМД'])
+        .size()
+        .unstack(fill_value=0)
+        .reset_index()
+    )
+
+    # Обязательные колонки для расчёта итогов
     required_columns = [
         'Зарегистрирован в Нетрике',
         'Зарегистрирован в РЭМД',
@@ -156,146 +256,130 @@ def create_summary_by_type(df: pd.DataFrame) -> pd.DataFrame:
         'Отказано в регистрации в РЭМД'
     ]
 
+    # Добавляем недостающие колонки с нулями
     for col in required_columns:
         if col not in pivot_table.columns:
             pivot_table[col] = 0
 
-    pivot_table['СЭМД успешно зарегистрированных в РЭМД'] = pivot_table[
-        ['Зарегистрирован в Нетрике', 'Зарегистрирован в РЭМД']].sum(axis=1)
+    # Считаем агрегаты
+    pivot_table['СЭМД успешно зарегистрированных в РЭМД'] = (
+        pivot_table['Зарегистрирован в Нетрике'] + pivot_table['Зарегистрирован в РЭМД']
+    )
+    pivot_table['СЭМД отказано в регистрации в РЭМД'] = (
+        pivot_table['Отказано в регистрации в Нетрике'] + pivot_table['Отказано в регистрации в РЭМД']
+    )
 
-    pivot_table['СЭМД отказано в регистрации в РЭМД'] = pivot_table[
-        ['Отказано в регистрации в Нетрике', 'Отказано в регистрации в РЭМД']].sum(axis=1)
+    # Удаляем исходные поля
+    pivot_table.drop(columns=required_columns, inplace=True, errors='ignore')
 
-    pivot_table.drop(columns=['Зарегистрирован в Нетрике', 'Зарегистрирован в РЭМД', 'Отказано в регистрации в Нетрике',
-                              'Отказано в регистрации в РЭМД'], inplace=True, errors='ignore')
-
+    # Перемещаем поле "успешно" ближе к началу для читаемости
     pivot_table.insert(1, 'СЭМД успешно зарегистрированных в РЭМД',
                        pivot_table.pop('СЭМД успешно зарегистрированных в РЭМД'))
 
     return pivot_table
 
-# Функция сводной таблицы по сотрудникам, с ошибочно выбранными сертификатами
-def create_summary_by_value_mismatch_threshold(df, threshold='VALUE_MISMATCH_METADATA_AND_CERTIFICATE'):
-    filtered_summary = df[df['Код ошибки'] == threshold]
 
-    employee_summary = filtered_summary['Сотрудник, сформировавший СЭМД'].value_counts()
+def create_summary_by_value_mismatch_threshold(
+    df: pd.DataFrame,
+    threshold: str = 'VALUE_MISMATCH_METADATA_AND_CERTIFICATE'
+) -> pd.DataFrame:
+    """
+    Возвращает таблицу сотрудников с количеством ошибок типа `threshold`,
+    связанных с несоответствием метаданных и сертификата.
+    """
 
-    employee_summary = employee_summary[employee_summary > 0].reset_index()
+    # Фильтруем строки, содержащие нужный код ошибки
+    filtered_df = df[df['Код ошибки'] == threshold]
 
-    employee_summary.columns = ['Сотрудник, сформировавший СЭМД', 'Частота ошибки']
+    # Подсчитываем количество таких ошибок на каждого сотрудника
+    summary = (
+        filtered_df['Сотрудник, сформировавший СЭМД']
+        .value_counts()
+        .reset_index()
+    )
+    summary.columns = ['Сотрудник, сформировавший СЭМД', 'Частота ошибки']
 
-    return employee_summary
+    return summary
 
-# Функция диаграммы по статусам
+
 def create_status_chart_data(df: pd.DataFrame) -> tuple[list[str], list[int]]:
+    """
+    Возвращает подписи и значения для круговой диаграммы по статусам СЭМД.
+    """
     labels = [
         'СЭМД успешно зарегистрированных в РЭМД',
         'Не  отправлен',
         'СЭМД отказано в регистрации в РЭМД'
     ]
 
-    values = []
-    for label in labels:
-        if label in df.columns:
-            values.append(int(df[label].sum()))
-        else:
-            values.append(0)
+    values = [
+        int(df[label].sum()) if label in df.columns else 0
+        for label in labels
+    ]
 
     return labels, values
 
-# Функция диаграммы ошибок
-def create_error_diagram(df):
+
+def create_error_diagram(df: pd.DataFrame) -> tuple[list[str], list[int]]:
+    """
+    Возвращает подписи и значения для столбчатой диаграммы ошибок.
+    """
+    # Убираем строки без кода ошибки
     df_filtered = df.dropna(subset=['Код ошибки'])
 
-    status_count = df_filtered['Код ошибки'].value_counts()
+    # Подсчитываем количество каждой ошибки
+    error_counts = df_filtered['Код ошибки'].value_counts()
 
-    labels = status_count.index.tolist()
-    values = status_count.values.tolist()
+    labels = error_counts.index.tolist()
+    values = error_counts.values.tolist()
 
     return labels, values
 
-# Функция вывода текстовой информации на сайдбар
-def display_summary(df, df2):
-    total_success = df['СЭМД успешно зарегистрированных в РЭМД'].sum()
-    total_not_sent = df['Не  отправлен'].sum()
-    total_refused = df['СЭМД отказано в регистрации в РЭМД'].sum()
-    total_employee_threshold = df2['Сотрудник, сформировавший СЭМД'].count()
 
-    total_all = total_success + total_refused + total_not_sent
+def display_summary(df_stats: pd.DataFrame, df_doc_perf: pd.DataFrame) -> dict[str, str]:
+    """
+    Возвращает текстовую сводку статистики для сайдбара:
+    общее количество, успешно, не отправлено, отказано, врачи > 500 СЭМД.
+    """
+    # Получаем суммы по статусам
+    total_success = df_stats['СЭМД успешно зарегистрированных в РЭМД'].sum()
+    total_not_sent = df_stats['Не  отправлен'].sum()
+    total_refused = df_stats['СЭМД отказано в регистрации в РЭМД'].sum()
 
-    percent_success = (total_success / total_all) * 100 if total_all > 0 else 0
-    percent_not_sent = (total_not_sent / total_all) * 100 if total_all > 0 else 0
-    percent_refused = (total_refused / total_all) * 100 if total_all > 0 else 0
+    total_all = total_success + total_not_sent + total_refused
 
+    # Количество врачей, выполнивших норму
+    total_employees_500 = df_doc_perf['Сотрудник, сформировавший СЭМД'].count()
+
+    # Расчёт процентов
+    def percent(part: int, total: int) -> float:
+        return (part / total * 100) if total > 0 else 0.0
 
     stats = {
         "Всего СЭМД загружено в РЭМД": total_all,
-        "Успешно зарегистрировано": f"{total_success} ({percent_success:.1f}%)",
-        "Не отправлено": f"{total_not_sent} ({percent_not_sent:.1f}%)",
-        "Отказано в регистрации": f"{total_refused} ({percent_refused:.1f}%)",
-        "Врачей с >500 СЭМД": total_employee_threshold
+        "Успешно зарегистрировано": f"{total_success} ({percent(total_success, total_all):.1f}%)",
+        "Не отправлено": f"{total_not_sent} ({percent(total_not_sent, total_all):.1f}%)",
+        "Отказано в регистрации": f"{total_refused} ({percent(total_refused, total_all):.1f}%)",
+        "Врачей с >500 СЭМД": total_employees_500
     }
 
     return stats
 
-# Получаем период из таблицы
-def get_date(df):
+
+def get_date(df: pd.DataFrame) -> tuple[str, str]:
+    """
+    Возвращает минимальную и максимальную дату из столбца 'Дата создания СЭМД'
+    в формате DD.MM.YYYY.
+    """
+    # Преобразуем в datetime, ошибки игнорируем
     df['Дата создания СЭМД'] = pd.to_datetime(df['Дата создания СЭМД'], errors='coerce')
-    min_date = df['Дата создания СЭМД'].min().strftime("%d.%m.%Y")
-    max_date = df['Дата создания СЭМД'].max().strftime("%d.%m.%Y")
 
-    return min_date, max_date
+    # Получаем границы диапазона
+    min_date = df['Дата создания СЭМД'].min()
+    max_date = df['Дата создания СЭМД'].max()
 
-def generate_tables(xlsx_bytes: bytes) -> dict[str, str]:
-    # 0. Загрузка справочника ошибок
-    df_errors = load_error_reference_dataframe()
-    
-    # 1. Загрузка исходного .xlsx
-    df = pd.read_excel(io.BytesIO(xlsx_bytes), skiprows=1)
+    # Если вдруг нет данных — возвращаем пустые строки
+    if pd.isna(min_date) or pd.isna(max_date):
+        return "", ""
 
-    # 2. Обогащение ошибок
-    df_processed = process_main_file(df, df_errors)
-
-    # 3. Удаляем строки "Всего: ЧИСЛО" из raw
-    df_raw = df_processed[~df_processed.apply(lambda row: row.astype(str).str.contains(r"^Всего:\s*\d+$", regex=True)).any(axis=1)]
-
-    # ===== 4. Статистика по СЭМД в РЭМД =====
-    statistics = create_summary_by_department(df)
-
-    # ===== 5. Врачи, сделавшие > 500 =====
-    doc_perf = create_summary_by_employee_threshold(df)
-
-    # ===== 6. Статистика по видам СЭМД =====
-    df_types = create_summary_by_type(df)
-
-    # ===== 7. Ошибки при выборе сертификата =====
-    df_cert_errors = create_summary_by_value_mismatch_threshold(df)
-
-    # ===== 8. Круговая диаграмма =====
-    pie_labels, pie_values = create_status_chart_data(statistics)
-
-    # ===== 9. Столбчатая диаграмма ошибок =====
-    bar_labels, bar_values = create_error_diagram(df_processed)
-
-    # ===== 10. Сводная статистика на слайд-панеле =====
-    summary_stats = display_summary(statistics, doc_perf)
-    min_date, max_date = get_date(df)
-
-    return {
-        "tables": {
-            "raw": render_df(df_raw, "rawTable"),
-            "statistics": render_df(statistics, "statisticsTable"),
-            "doc_perf_500": render_df(doc_perf, "docPerfTable"),
-            "types": render_df(df_types, "typesTable"),
-            "cert_errors": render_df(df_cert_errors, "certErrorsTable"),
-            "reference": load_error_reference(table_id="errorsDictTable"),
-        },
-        "pie_labels": pie_labels,
-        "pie_values": pie_values,
-
-        "bar_labels": bar_labels,
-        "bar_values": bar_values,
-        "summary": summary_stats,
-        "min_date": min_date,
-        "max_date": max_date,
-    }
+    return min_date.strftime("%d.%m.%Y"), max_date.strftime("%d.%m.%Y")

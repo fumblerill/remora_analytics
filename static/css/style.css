@@ -1,35 +1,52 @@
+/* Убираем горизонтальный скролл по умолчанию */
 body {
-    overflow-x: hidden;
-  }
-  
-  .sidebar {
-    height: 100vh;
-    position: fixed;
-    left: 0;
-    top: 0;
-    padding: 1rem;
-    background-color: #f8f9fa;
-    width: 280px;
-    border-right: 1px solid #ddd;
-  }
+  overflow-x: hidden;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+}
 
-  .content {
-    margin-left: 290px;
-    padding: 2rem;
-  }
+/* Боковая панель */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 280px;
+  height: 100vh;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-right: 1px solid #ddd;
+  overflow-y: auto;
+}
 
-  .section {
-    margin-bottom: 3rem;
-  }
+/* Контент справа от сайдбара */
+.content {
+  margin-left: 290px;
+  padding: 2rem;
+}
 
-  #preloader {
-    transition: opacity 0.2s ease-in-out;
-  }
+/* Секции с отступом снизу */
+.section {
+  margin-bottom: 3rem;
+}
 
-  .table-wrapper {
-    overflow-x: auto;
-    padding-left: 0;
-    padding-right: 0;
-    margin-left: 0;
-    margin-right: 0;
-  }
+/* Анимация появления контента после прелоадера */
+#preloader {
+  transition: opacity 0.2s ease-in-out;
+}
+
+/* Обёртка таблицы с горизонтальным скроллом */
+.table-wrapper {
+  overflow-x: auto;
+  padding: 0;
+  margin: 0;
+}
+
+/* Уточняем поведение select2 внутри таблиц */
+.select2-container {
+  width: 100% !important;
+}
+
+/* Кнопка-детализация: аккуратный отступ */
+details summary {
+  cursor: pointer;
+  margin-bottom: 0.5rem;
+}

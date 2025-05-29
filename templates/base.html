@@ -5,6 +5,9 @@
   <title>{% block title %}Анализ СЭМД{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', path='favicon.png') }}">
+
   <!-- Стили -->
   <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -13,13 +16,14 @@
   <!-- Скрипты -->
   <script src="{{ url_for('static', path='js/theme.js') }}" defer></script>
 </head>
+
 <body>
 
 <!-- Сайдбар -->
 <div class="sidebar">
   <div class="mb-3">
     <h4 class="text-primary">
-      Remora.<strong>Analytics</strong> <small class="text-muted">v0.9</small>
+      Remora.<strong>Analytics</strong> <small class="text-muted">v1.0</small>
     </h4>
   </div>
 
@@ -67,11 +71,15 @@
   </div>
     {# Сообщение при отсутствии файла #}
     {% if not filename %}
-    <div class="d-flex justify-content-center align-items-center" style="min-height: 80vh;">
-        <h2 class="text-primary text-center">Загрузите .xlsx файл, чтобы увидеть аналитику</h2>
-    </div>
+      <div class="d-flex justify-content-center align-items-center" style="min-height: 80vh;">
+        {% if error %}
+          <h2 class="text-danger text-center">{{ error }}</h2>
+        {% else %}
+          <h2 class="text-primary text-center">Загрузите .xlsx файл, чтобы увидеть аналитику</h2>
+        {% endif %}
+      </div>
     {% else %}
-        {% block content %}{% endblock %}
+      {% block content %}{% endblock %}
     {% endif %}
 </div>
 

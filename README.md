@@ -1,6 +1,9 @@
 <div align="center">
 
-<h1>📊 Remora.Analytics</h1>
+<h1>
+  <img src="static/favicon.png" alt="Remora logo" width="48" />
+  Remora.Analytics
+</h1>
 
 <p><i>Self-hosted приложение для анализа выгрузок из МИС «БАРС»</i></p>
 <p>Загрузи Excel — получи визуализацию и отчёты без лишней магии.</p>

@@ -1,0 +1,12 @@
+version: "3.9"
+
+services:
+  remora:
+    build: .
+    container_name: remora_analytics
+    ports:
+      - "${PORT}:${PORT}"           # Пробрасываем порт из .env
+    volumes:
+      - ./uploaded:/app/uploaded    # Загружаемые файлы сохраняются между перезапусками
+    env_file:
+      - .env                        # Переменные окружения (SECRET_KEY, USERS, HOST, PORT, RELOAD)

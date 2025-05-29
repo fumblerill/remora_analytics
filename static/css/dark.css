@@ -174,3 +174,28 @@ border-radius: 4px;
   background-color: #3a3a3a !important;
   color: #fff !important;
 }
+
+/* Логин: карточка */
+.card {
+  background-color: #2a2a2a !important;
+  border: 1px solid #444 !important;
+  color: #e0e0e0;
+}
+
+/* Поля ввода */
+.form-control {
+  background-color: #1e1e1e;
+  color: #e0e0e0;
+  border: 1px solid #555;
+}
+
+.form-control::placeholder {
+  color: #888;
+}
+
+.form-control:focus {
+  background-color: #1e1e1e;
+  color: #fff;
+  border-color: #666;
+  box-shadow: none;
+}

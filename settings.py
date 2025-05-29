@@ -11,3 +11,7 @@ STATIC_DIR = BASE_DIR / "static"
 
 # Путь к Excel-файлу со справочником ошибок
 ERROR_REF_PATH = BASE_DIR / "error_reference.xlsx"
+
+SECRET_KEY = "dev-secret-key"
+
+USERS = {"admin": "1234", "user": "pass"}

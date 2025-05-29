@@ -1,26 +1,63 @@
-from fastapi import APIRouter, Request, UploadFile, File
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Request, UploadFile, File, Form
+from fastapi.responses import HTMLResponse, RedirectResponse
 from xlsx_handler import generate_tables
 
+from settings import USERS
+
 router = APIRouter()
+
+users = USERS
 
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     """
     Отображает главную страницу с формой загрузки файла.
     """
+    user = request.session.get("user")
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+
     theme = request.cookies.get("theme", "light")
     return request.app.templates.TemplateResponse("upload.html", {
         "request": request,
         "theme": theme
     })
 
+@router.get("/login", response_class=HTMLResponse)
+async def login_get(request: Request):
+    theme = request.cookies.get("theme", "light")
+    return request.app.templates.TemplateResponse(
+        "login.html",
+        {"request": request,
+         "theme": theme
+    })
+
+@router.post("/login")
+async def login_post(request: Request, username: str = Form(...), password: str = Form(...)):
+    theme = request.cookies.get("theme", "light")
+    if username in users and users[username] == password:
+        request.session["user"] = username
+        return RedirectResponse(url="/", status_code=302)
+    return request.app.templates.TemplateResponse("login.html", {
+        "request": request,
+        "error": "❌ Неверный логин или пароль",
+        "theme": theme
+    })
+
+@router.post("/logout")
+async def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse(url="/login", status_code=302)
 
 @router.post("/upload", response_class=HTMLResponse)
 async def upload(request: Request, file: UploadFile = File(...)):
     """
     Обрабатывает загруженный .xlsx-файл, генерирует таблицы и возвращает страницу с результатами.
     """
+    user = request.session.get("user")
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+
     if not file.filename.endswith(".xlsx"):
         return request.app.templates.TemplateResponse("upload.html", {
             "request": request,

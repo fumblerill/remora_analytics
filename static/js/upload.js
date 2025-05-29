@@ -72,6 +72,31 @@ function minMaxFilterFunction(headerValue, rowValue, rowData, filterParams){
   return true;
 }
 
+function getContextMenu(containerId) {
+  return [
+    {
+      label: "📥 Скачать Excel",
+      action: function () {
+        const table = Tabulator.findTable("#" + containerId)[0];
+        table.download("xlsx", containerId + ".xlsx", { sheetName: "Лист1" });
+      }
+    },
+    {
+      label: "📋 Копировать строку",
+      action: function (e, row) {
+        navigator.clipboard.writeText(JSON.stringify(row.getData()));
+        alert("Скопировано!");
+      }
+    },
+    {
+      label: "🔍 Просмотр строки",
+      action: function (e, row) {
+        alert("Строка:\n" + JSON.stringify(row.getData(), null, 2));
+      }
+    }
+  ];
+}
+
 function initTabulators() {
   document.querySelectorAll("template[id$='-json']").forEach(template => {
     const id = template.id.replace("-json", "");
@@ -157,7 +182,7 @@ function initTabulators() {
 
     const layoutMode = id === "rawTable" ? "fitData" : "fitColumns";
 
-    new Tabulator(container, {
+    const tableInstance = new Tabulator(container, {
       data,
       columns,
       height: 400,
@@ -166,6 +191,7 @@ function initTabulators() {
       pagination: true,
       paginationSize: 100,
       placeholder: "Нет данных для отображения",
+      rowContextMenu: getContextMenu(container.id)
     });
   });
 }

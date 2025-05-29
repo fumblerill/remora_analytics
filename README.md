@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="static/favicon.png" alt="Remora logo" width="64" />
+<img src="static/favicon.png" alt="Remora logo" width="128" />
 
 <h1>Remora.Analytics</h1>
 

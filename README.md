@@ -1,7 +1,7 @@
 <div align="center">
 
 <h1>
-  <img src="static/favicon.png" alt="Remora logo" width="48" />
+  <img src="static/favicon.png" alt="Remora logo" width="48" style="vertical-align: middle;" />
   Remora.Analytics
 </h1>
 

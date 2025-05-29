@@ -170,6 +170,28 @@ function initTabulators() {
   });
 }
 
+function updateChartTheme(isDark) {
+  const labelColor = isDark ? "#fff" : "#000";
+  const gridColor = isDark ? "#444" : "#ccc";
+
+  if (window.barChartInstance) {
+    const barOptions = window.barChartInstance.options;
+    barOptions.plugins.legend.labels.color = labelColor;
+    barOptions.scales.x.ticks.color = labelColor;
+    barOptions.scales.y.ticks.color = labelColor;
+    barOptions.scales.x.grid.color = gridColor;
+    barOptions.scales.y.grid.color = gridColor;
+    window.barChartInstance.update();
+  }
+
+  if (window.pieChartInstance) {
+    const pieOptions = window.pieChartInstance.options;
+    pieOptions.plugins.legend.labels.color = labelColor;
+    pieOptions.plugins.datalabels.color = labelColor;
+    window.pieChartInstance.update();
+  }
+}
+
 function initCharts() {
   const barCanvas = document.getElementById('barChart');
   const pieCanvas = document.getElementById('pieChart');
@@ -180,6 +202,7 @@ function initCharts() {
     '#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00',
     '#ffff33', '#a65628', '#f781bf', '#999999', '#66c2a5', '#fc8d62'
   ];
+
   const barColors = barLabels.map((_, i) => backgroundColors[i % backgroundColors.length]);
 
   const ctxBar = barCanvas.getContext('2d');
@@ -189,6 +212,7 @@ function initCharts() {
     data: {
       labels: barLabels,
       datasets: [{
+        label: 'Количество',
         data: barValues,
         backgroundColor: barColors,
         borderRadius: 4,
@@ -199,29 +223,28 @@ function initCharts() {
       indexAxis: 'x',
       responsive: true,
       plugins: {
-        legend: {
-          display: true,
-          position: 'right',
-          labels: {
-            generateLabels: (chart) =>
-              chart.data.labels.map((label, i) => ({
-                text: label,
-                fillStyle: barColors[i],
-                strokeStyle: barColors[i],
-                index: i
-              }))
-          }
-        },
+        legend: { display: false },
         datalabels: { display: false }
       },
       scales: {
-        x: { beginAtZero: false, ticks: { display: false }, grid: { display: false } },
-        y: { beginAtZero: true, ticks: { precision: 0 } }
+        x: {
+          ticks: { display: false },
+          grid: { display: false }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { precision: 0, color: '#000' },
+          grid: { color: '#ccc' }
+        }
       }
     },
     plugins: [ChartDataLabels]
   });
 
+  // кастомная легенда
+  renderCustomLegend(barLabels, barColors);
+
+  // Pie — как было
   const ctxPie = pieCanvas.getContext('2d');
   if (window.pieChartInstance) window.pieChartInstance.destroy();
   window.pieChartInstance = new Chart(ctxPie, {
@@ -240,10 +263,13 @@ function initCharts() {
       plugins: {
         legend: {
           position: 'right',
-          labels: { padding: 20 }
+          labels: {
+            color: "#000",
+            padding: 20
+          }
         },
         datalabels: {
-          color: '#000',
+          color: "#000",
           font: { weight: 'bold' },
           formatter: (value, context) => {
             const data = context.chart.data.datasets[0].data;
@@ -257,11 +283,38 @@ function initCharts() {
   });
 }
 
+function renderCustomLegend(labels, colors) {
+  const container = document.getElementById('barLegend');
+  if (!container) return;
+
+  container.innerHTML = ''; // очищаем
+
+  labels.forEach((label, i) => {
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+
+    const box = document.createElement('span');
+    box.className = 'legend-box';
+    box.style.backgroundColor = colors[i];
+
+    const text = document.createElement('span');
+    text.className = 'legend-label';
+    text.textContent = label;
+
+    item.appendChild(box);
+    item.appendChild(text);
+    container.appendChild(item);
+  });
+}
+
 // Показ контента после загрузки и удаление прелоадера
 function startPage() {
   try {
     initTabulators();
     initCharts();
+
+    const currentTheme = localStorage.getItem("theme") || "light";
+    updateChartTheme(currentTheme === "dark");
   } catch (e) {
     console.error("🔥 Ошибка в startPage:", e);
   }
@@ -284,3 +337,5 @@ window.addEventListener("load", () => {
       startPage();
   }, 50);
 });
+
+window.updateChartTheme = updateChartTheme;

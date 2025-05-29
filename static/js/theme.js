@@ -1,18 +1,22 @@
 document.addEventListener("DOMContentLoaded", () => {
-    const themeLink = document.getElementById("themeStylesheet");
-    const toggleBtn = document.getElementById("themeToggleBtn");
-  
-    const setTheme = (theme) => {
-      themeLink.href = `/static/css/${theme}.css`;
-      localStorage.setItem("theme", theme);
-      toggleBtn.innerText = theme === "light" ? "☀️" : "🌙";
-    };
-  
-    const currentTheme = localStorage.getItem("theme") || "light";
-    setTheme(currentTheme);
-  
-    toggleBtn.addEventListener("click", () => {
-      const newTheme = themeLink.href.includes("light.css") ? "dark" : "light";
-      setTheme(newTheme);
-    });
-  });  
+  const toggleBtn = document.getElementById("themeToggleBtn");
+
+  const setTheme = (theme) => {
+    localStorage.setItem("theme", theme);
+    document.cookie = "theme=" + theme + "; path=/; max-age=31536000";
+    toggleBtn.innerText = theme === "dark" ? "🌙" : "☀️";
+
+    if (typeof updateChartTheme === "function") {
+      updateChartTheme(theme === "dark");
+    }
+  };
+
+  const theme = localStorage.getItem("theme") || "light";
+  setTheme(theme);
+
+  toggleBtn.addEventListener("click", () => {
+    const newTheme = localStorage.getItem("theme") === "dark" ? "light" : "dark";
+    setTheme(newTheme);
+    location.reload();
+  });
+});

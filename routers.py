@@ -9,8 +9,10 @@ async def index(request: Request):
     """
     Отображает главную страницу с формой загрузки файла.
     """
+    theme = request.cookies.get("theme", "light")
     return request.app.templates.TemplateResponse("upload.html", {
-        "request": request
+        "request": request,
+        "theme": theme
     })
 
 
@@ -27,6 +29,7 @@ async def upload(request: Request, file: UploadFile = File(...)):
 
     contents = await file.read()
     data = generate_tables(contents)
+    theme = request.cookies.get("theme", "light")
 
     return request.app.templates.TemplateResponse("upload.html", {
         "request": request,
@@ -49,5 +52,6 @@ async def upload(request: Request, file: UploadFile = File(...)):
         # Сводка и даты
         "summary": data["summary"],
         "min_date": data["min_date"],
-        "max_date": data["max_date"]
+        "max_date": data["max_date"],
+        "theme": theme
     })

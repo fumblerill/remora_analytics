@@ -40,3 +40,30 @@ body {
 .tabulator .tabulator-footer .tabulator-page.active {
     color: #0D6EFD !important;
 }
+
+#barLegend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+  margin-left: 1.5rem;
+  margin-top: 1rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.legend-box {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.legend-label {
+  white-space: nowrap;
+  color: inherit;
+}

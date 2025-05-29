@@ -53,12 +53,14 @@
     <!-- 📉 Столбчатая диаграмма -->
     <div class="section mb-5" id="bar">
       <h5>📉 Ошибки СЭМД при отправке в РЭМД</h5>
-      <div class="d-flex justify-content-center">
-        <div style="width: 100%; max-width: 900px; height: 500px; display: flex; justify-content: center; margin-top: 40px; margin-bottom: 40px;">
-          <canvas id="barChart"></canvas>
+      <div style="display: flex; justify-content: center; align-items: center; gap: 2rem; margin-top: 40px; margin-bottom: 40px;">
+        <div style="width: 100%; max-width: 900px; height: 500px;">
+          <canvas id="barChart" width="900" height="500"></canvas>
         </div>
+        <div id="barLegend" style="max-height: 500px; overflow-y: auto;"></div>
       </div>
     </div>
+
 
     <!-- 📑 Виды СЭМД и ошибки сертификатов -->
     <div class="row mb-4">
